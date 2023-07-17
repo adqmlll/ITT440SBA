@@ -1,0 +1,47 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <arpa/inet.h>
+
+int main() {
+    int client_socket;
+    struct sockaddr_in server_addr;
+    
+    // Create socket
+    client_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (client_socket == -1) {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+    
+    // Set up server address
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(8080); // You can change this port number if needed
+    inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr); // Change "127.0.0.1" to the server IP
+    
+    // Connect to server
+    if (connect(client_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
+        perror("Connection to server failed");
+        close(client_socket);
+        exit(EXIT_FAILURE);
+    }
+    
+    printf("Connected to server.\n");
+    
+    // Receive random number from the server
+    int received_number;
+    if (recv(client_socket, &received_number, sizeof(received_number), 0) == -1) {
+        perror("Error receiving data from server");
+        close(client_socket);
+        exit(EXIT_FAILURE);
+    }
+    
+    // Print received random number
+    printf("Received random number from server: %d\n", received_number);
+    
+    // Close the socket
+    close(client_socket);
+    
+    return 0;
+}

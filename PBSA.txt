@@ -1,0 +1,71 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <arpa/inet.h>
+
+int generate_random_number() {
+    return rand() % 30001 + 50000; // Generate a random number between 50,000 and 80,000
+}
+
+int main() {
+    int server_socket, client_socket;
+    struct sockaddr_in server_addr, client_addr;
+    socklen_t client_addr_len = sizeof(client_addr);
+    
+    // Create socket
+    server_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_socket == -1) {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+    
+    // Set up server address
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port = htons(8080); // You can change this port number if needed
+    
+    // Bind socket to the specified address and port
+    if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
+        perror("Socket bind failed");
+        close(server_socket);
+        exit(EXIT_FAILURE);
+    }
+    
+    // Listen for incoming connections
+    if (listen(server_socket, 1) == -1) {
+        perror("Socket listen failed");
+        close(server_socket);
+        exit(EXIT_FAILURE);
+    }
+    
+    printf("Server listening for incoming connections...\n");
+    
+    // Accept the client connection
+    client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_addr_len);
+    if (client_socket == -1) {
+        perror("Error accepting client connection");
+        close(server_socket);
+        exit(EXIT_FAILURE);
+    }
+    
+    printf("Client connected.\n");
+    
+    // Generate random number
+    int random_number = generate_random_number();
+    printf("Generated random number: %d\n", random_number);
+    
+    // Send random number to the client
+    if (send(client_socket, &random_number, sizeof(random_number), 0) == -1) {
+        perror("Error sending data to client");
+        close(client_socket);
+        close(server_socket);
+        exit(EXIT_FAILURE);
+    }
+    
+    // Close sockets
+    close(client_socket);
+    close(server_socket);
+    
+    return 0;
+}

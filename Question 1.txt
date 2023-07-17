@@ -1,0 +1,74 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <string.h>
+#include <signal.h>
+
+#define NUM_CHILDREN 3
+
+void child_interrupt_handler(int sig) {
+    printf("Child %d: Received interrupt message from Parent\n", getpid());
+}
+
+int main() {
+    int pipe_fds[NUM_CHILDREN][2]; // Pipe file descriptors for communication with each child
+    pid_t child_pids[NUM_CHILDREN]; // Store child process IDs
+    int i;
+
+    // Create pipes for communication
+    for (i = 0; i < NUM_CHILDREN; i++) {
+        if (pipe(pipe_fds[i]) == -1) {
+            perror("Error creating pipe");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    // Create child processes
+    for (i = 0; i < NUM_CHILDREN; i++) {
+        pid_t pid = fork();
+
+        if (pid < 0) {
+            perror("Fork error");
+            exit(EXIT_FAILURE);
+        } else if (pid == 0) {
+            // Child process
+            close(pipe_fds[i][1]); // Close unused write end of the pipe
+
+            // Set up the signal handler for the interrupt message
+            signal(SIGINT, child_interrupt_handler);
+
+            char buffer[100];
+            int n = read(pipe_fds[i][0], buffer, sizeof(buffer));
+            if (n > 0) {
+                buffer[n] = '\0';
+                printf("Child %d: Received message from Parent: %s\n", getpid(), buffer);
+            } else {
+                printf("Child %d: Failed to receive message from Parent.\n", getpid());
+            }
+
+            close(pipe_fds[i][0]);
+            exit(EXIT_SUCCESS);
+        } else {
+            // Parent process
+            child_pids[i] = pid;
+            close(pipe_fds[i][0]); // Close unused read end of the pipe
+        }
+    }
+
+    // Parent process
+    for (i = 0; i < NUM_CHILDREN; i++) {
+        // Send a message to each child using pipes
+        char message[100];
+        sprintf(message, "Hello Child %d, I am your Parent!", i + 1);
+        write(pipe_fds[i][1], message, strlen(message));
+        close(pipe_fds[i][1]); // Close write end after sending the message
+    }
+
+    // Wait for all child processes complete
+    for (i = 0; i < NUM_CHILDREN; i++) {
+        waitpid(child_pids[i], NULL, 0);
+    }
+
+    return 0;
+}
